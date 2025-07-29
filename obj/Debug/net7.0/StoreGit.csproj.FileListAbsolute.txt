@@ -1,0 +1,15 @@
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/bin/Debug/net7.0/StoreGit
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/bin/Debug/net7.0/StoreGit.deps.json
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/bin/Debug/net7.0/StoreGit.runtimeconfig.json
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/bin/Debug/net7.0/StoreGit.dll
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/bin/Debug/net7.0/StoreGit.pdb
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/obj/Debug/net7.0/StoreGit.csproj.AssemblyReference.cache
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/obj/Debug/net7.0/StoreGit.GeneratedMSBuildEditorConfig.editorconfig
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/obj/Debug/net7.0/StoreGit.AssemblyInfoInputs.cache
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/obj/Debug/net7.0/StoreGit.AssemblyInfo.cs
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/obj/Debug/net7.0/StoreGit.csproj.CoreCompileInputs.cache
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/obj/Debug/net7.0/StoreGit.dll
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/obj/Debug/net7.0/refint/StoreGit.dll
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/obj/Debug/net7.0/StoreGit.pdb
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/obj/Debug/net7.0/StoreGit.genruntimeconfig.cache
+/Users/evelinanoskova/Documents/Code/Store/StoreGit/obj/Debug/net7.0/ref/StoreGit.dll
