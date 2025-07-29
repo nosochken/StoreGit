@@ -1,5 +1,5 @@
-﻿Good iPhone12 = new Good("IPhone 12");
-Good iPhone11 = new Good("IPhone 11");
+﻿Product iPhone12 = new Product("IPhone 12");
+Product iPhone11 = new Product("IPhone 11");
 
 Warehouse warehouse = new Warehouse();
 
@@ -9,79 +9,119 @@ warehouse.Delive(iPhone12, 10);
 warehouse.Delive(iPhone11, 1);
 
 //Вывод всех товаров на складе с их остатком
-warehouse.ShowGoods();
+warehouse.ShowProducts();
 
-Cart cart = shop.Cart();
+Cart cart = shop.GetCart();
 cart.Add(iPhone12, 4);
 cart.Add(iPhone11, 3); //при такой ситуации возникает ошибка так, как нет нужного количества товара на складе
 
 //Вывод всех товаров в корзине
-cart.ShowGoods();
+cart.ShowProducts();
 
-Console.WriteLine(cart.Order().Paylink);
+Console.WriteLine(cart.MakeOrder().Paylink);
 
 cart.Add(iPhone12, 9); //Ошибка, после заказа со склада убираются заказанные товары
 
-public class Good
+public class Product
 {
     public string Name { get; }
 
-    public Good(string name)
+    public Product(string name)
     {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException(nameof(name));
+
         Name = name;
     }
 }
 
-public abstract class GoodsDisplayer
+public abstract class ProductsDisplayer
 {
-    public abstract void ShowGoods();
+    public ProductsDisplayer() { }
 
-    protected void Display(Dictionary<Good, int> goods, string place)
+    public abstract void ShowProducts();
+
+    protected void Display(Dictionary<Product, int> products, string place)
     {
+        if (products == null)
+            throw new ArgumentNullException(nameof(products));
+
+        if (string.IsNullOrWhiteSpace(place))
+            throw new ArgumentException(nameof(place));
+
         Console.WriteLine($"Товары {place}:");
 
-        foreach (KeyValuePair<Good, int> good in goods)
-            Console.WriteLine($"{good.Key.Name} в количестве {good.Value} шт.");
+        foreach (KeyValuePair<Product, int> product in products)
+            Console.WriteLine($"{product.Key.Name} в количестве {product.Value} шт.");
     }
 }
 
-public class Warehouse : GoodsDisplayer
+public interface IStorable
 {
-    private Dictionary<Good, int> _goods = new Dictionary<Good, int>();
+    public bool CheckAvailability(Product product, int amount);
 
-    public IReadOnlyDictionary<Good, int> Goods => _goods;
+    public void PickUpProducts(IReadOnlyDictionary<Product, int> orderedProducts);
+}
 
-    public override void ShowGoods()
+public class Warehouse : ProductsDisplayer, IStorable
+{
+    private Dictionary<Product, int> _products = new Dictionary<Product, int>();
+
+    public Warehouse() { }
+
+    public override void ShowProducts()
     {
-        Display(_goods, "на складе");
+        Display(_products, "на складе");
     }
 
-    public void Delive(Good good, int amount)
+    public void Delive(Product product, int amount)
     {
-        if (good == null)
-            throw new ArgumentNullException(nameof(good));
+        if (product == null)
+            throw new ArgumentNullException(nameof(product));
         if (amount <= 0)
             throw new ArgumentOutOfRangeException(nameof(amount));
 
-        if (_goods.TryGetValue(good, out int availableAmount))
-            _goods[good] = availableAmount + amount;
+        if (_products.ContainsKey(product))
+            _products[product] += amount;
         else
-            _goods.Add(good, amount);
+            _products.Add(product, amount);
     }
 
-    public void PickUpOrderedGoods(IReadOnlyDictionary<Good, int> orderedGoods)
+    public bool CheckAvailability(Product product, int amount)
     {
-        if (orderedGoods == null)
-            throw new ArgumentNullException(nameof(orderedGoods));
+        if (product == null)
+            throw new ArgumentNullException(nameof(product));
+        if (amount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(amount));
 
-        foreach (KeyValuePair<Good, int> orderedGood in orderedGoods)
+        if (_products.ContainsKey(product))
         {
-            if (_goods.TryGetValue(orderedGood.Key, out int availableAmount))
-            {
-                _goods[orderedGood.Key] = availableAmount - orderedGood.Value;
+            if (_products[product] >= amount)
+                return true;
+            else
+                throw new InvalidOperationException(nameof(amount));
+        }
 
-                if (_goods[orderedGood.Key] <= 0)
-                    _goods.Remove(orderedGood.Key);
+        return false;
+    }
+
+    public void PickUpProducts(IReadOnlyDictionary<Product, int> orderedProducts)
+    {
+        if (orderedProducts == null)
+            throw new ArgumentNullException(nameof(orderedProducts));
+
+        foreach (KeyValuePair<Product, int> orderedProduct in orderedProducts)
+        {
+            if (CheckAvailability(orderedProduct.Key, orderedProduct.Value))
+            {
+                _products[orderedProduct.Key] -= orderedProduct.Value;
+
+                if (_products[orderedProduct.Key] == 0)
+                    _products.Remove(orderedProduct.Key);
+            }
+            else
+            {
+                throw new InvalidOperationException(nameof(PickUpProducts));
             }
         }
     }
@@ -91,8 +131,6 @@ public class Shop
 {
     private readonly Warehouse _warehouse;
 
-    private List<Cart> _carts = new List<Cart>();
-
     public Shop(Warehouse warehouse)
     {
         if (warehouse == null)
@@ -101,88 +139,50 @@ public class Shop
         _warehouse = warehouse;
     }
 
-    public Cart Cart()
+    public Cart GetCart()
     {
-        Cart? freeCart = _carts.FirstOrDefault(cart => cart.IsBusy == false);
-
-        if (freeCart == null)
-        {
-            freeCart = new Cart();
-            _carts.Add(freeCart);
-        }
-
-        freeCart.Prepare(_warehouse.Goods);
-        freeCart.GoodsOrdered += PickUpGoodFromWarehouse;
-
-        return freeCart;
-    }
-
-    private void PickUpGoodFromWarehouse(Cart cart, IReadOnlyDictionary<Good, int> goods)
-    {
-        if (cart == null)
-            throw new ArgumentNullException(nameof(cart));
-
-        if (goods == null)
-            throw new ArgumentNullException(nameof(goods));
-
-        cart.GoodsOrdered -= PickUpGoodFromWarehouse;
-
-        _warehouse.PickUpOrderedGoods(goods);
+        return new Cart(_warehouse);
     }
 }
 
-public class Cart : GoodsDisplayer
+public class Cart : ProductsDisplayer
 {
-    private IReadOnlyDictionary<Good, int> _availableGoods = new Dictionary<Good, int>();
-    private Dictionary<Good, int> _selectedGoods = new Dictionary<Good, int>();
+    private readonly IStorable _warehouse;
 
-    public event Action<Cart, IReadOnlyDictionary<Good, int>>? GoodsOrdered;
+    private Dictionary<Product, int> _selectedProducts = new Dictionary<Product, int>();
+    private IReadOnlyDictionary<Product, int> _orderedProducts => _selectedProducts;
 
-    public bool IsBusy { get; private set; }
-
-    public void Prepare(IReadOnlyDictionary<Good, int> goods)
+    public Cart(Warehouse warehouse)
     {
-        if (goods == null)
-            throw new ArgumentNullException(nameof(goods));
+        if (warehouse == null)
+            throw new ArgumentNullException(nameof(warehouse));
 
-        _availableGoods = goods;
-        IsBusy = true;
+        _warehouse = warehouse;
     }
 
-    public override void ShowGoods()
+    public override void ShowProducts()
     {
-        Display(_selectedGoods, "в корзине");
+        Display(_selectedProducts, "в корзине");
     }
 
-    public void Add(Good good, int amount)
+    public void Add(Product product, int amount)
     {
-        if (good == null)
-            throw new ArgumentNullException(nameof(good));
+        if (product == null)
+            throw new ArgumentNullException(nameof(product));
         if (amount <= 0)
             throw new ArgumentOutOfRangeException(nameof(amount));
 
-        if (_availableGoods.TryGetValue(good, out int availableAmount))
-        {
-            if (availableAmount < amount)
-                throw new InvalidOperationException(nameof(amount));
-        }
-        else
-        {
-            throw new KeyNotFoundException(nameof(good));
-        }
-
-        _selectedGoods.Add(good, amount);
+        if (_warehouse.CheckAvailability(product, amount))
+            _selectedProducts.Add(product, amount);
     }
 
-    public Order Order()
+    public Order MakeOrder()
     {
-        if (_selectedGoods.Count == 0)
-            throw new InvalidOperationException(nameof(Order));
+        if (_orderedProducts.Count == 0)
+            throw new InvalidOperationException(nameof(MakeOrder));
 
-        GoodsOrdered?.Invoke(this, _selectedGoods);
-        _selectedGoods.Clear();
-
-        IsBusy = false;
+        _warehouse.PickUpProducts(_orderedProducts);
+        _selectedProducts.Clear();
 
         return new Order();
     }
