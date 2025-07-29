@@ -24,8 +24,6 @@ cart.Add(iPhone12, 9); //Ошибка, после заказа со склада
 
 public class Product
 {
-    public string Name { get; }
-
     public Product(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -33,6 +31,8 @@ public class Product
 
         Name = name;
     }
+
+    public string Name { get; }
 }
 
 public abstract class ProductsDisplayer
@@ -58,7 +58,7 @@ public abstract class ProductsDisplayer
 
 public interface IStorable
 {
-    public bool CheckAvailability(Product product, int amount);
+    public void MakeSureProductAvailable(Product product, int amount, IReadOnlyDictionary<Product, int> products);
 
     public void PickUpProducts(IReadOnlyDictionary<Product, int> orderedProducts);
 }
@@ -78,6 +78,7 @@ public class Warehouse : ProductsDisplayer, IStorable
     {
         if (product == null)
             throw new ArgumentNullException(nameof(product));
+
         if (amount <= 0)
             throw new ArgumentOutOfRangeException(nameof(amount));
 
@@ -87,24 +88,6 @@ public class Warehouse : ProductsDisplayer, IStorable
             _products.Add(product, amount);
     }
 
-    public bool CheckAvailability(Product product, int amount)
-    {
-        if (product == null)
-            throw new ArgumentNullException(nameof(product));
-        if (amount <= 0)
-            throw new ArgumentOutOfRangeException(nameof(amount));
-
-        if (_products.ContainsKey(product))
-        {
-            if (_products[product] >= amount)
-                return true;
-            else
-                throw new InvalidOperationException(nameof(amount));
-        }
-
-        return false;
-    }
-
     public void PickUpProducts(IReadOnlyDictionary<Product, int> orderedProducts)
     {
         if (orderedProducts == null)
@@ -112,18 +95,47 @@ public class Warehouse : ProductsDisplayer, IStorable
 
         foreach (KeyValuePair<Product, int> orderedProduct in orderedProducts)
         {
-            if (CheckAvailability(orderedProduct.Key, orderedProduct.Value))
-            {
-                _products[orderedProduct.Key] -= orderedProduct.Value;
+            ValidateAvailability(orderedProduct.Key, orderedProduct.Value);
 
-                if (_products[orderedProduct.Key] == 0)
-                    _products.Remove(orderedProduct.Key);
-            }
-            else
-            {
-                throw new InvalidOperationException(nameof(PickUpProducts));
-            }
+            _products[orderedProduct.Key] -= orderedProduct.Value;
+
+            if (_products[orderedProduct.Key] == 0)
+                _products.Remove(orderedProduct.Key);
         }
+    }
+
+    public void MakeSureProductAvailable(Product product, int amount, IReadOnlyDictionary<Product, int> products)
+    {
+        if (product == null)
+            throw new ArgumentNullException(nameof(product));
+
+        if (amount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(amount));
+
+        if (products == null)
+            throw new ArgumentNullException(nameof(products));
+
+        int totalAmount = amount;
+
+        if (products.ContainsKey(product))
+            totalAmount += products[product];
+
+        ValidateAvailability(product, totalAmount);
+    }
+
+    private void ValidateAvailability(Product product, int amount)
+    {
+        if (product == null)
+            throw new ArgumentNullException(nameof(product));
+
+        if (amount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(amount));
+
+        if (_products.TryGetValue(product, out int availableAmount) == false)
+            throw new InvalidOperationException(nameof(product));
+
+        if (availableAmount < amount)
+            throw new ArgumentOutOfRangeException(nameof(amount));
     }
 }
 
@@ -150,7 +162,6 @@ public class Cart : ProductsDisplayer
     private readonly IStorable _warehouse;
 
     private Dictionary<Product, int> _selectedProducts = new Dictionary<Product, int>();
-    private IReadOnlyDictionary<Product, int> _orderedProducts => _selectedProducts;
 
     public Cart(Warehouse warehouse)
     {
@@ -159,6 +170,8 @@ public class Cart : ProductsDisplayer
 
         _warehouse = warehouse;
     }
+
+    private IReadOnlyDictionary<Product, int> _orderedProducts => _selectedProducts;
 
     public override void ShowProducts()
     {
@@ -169,11 +182,12 @@ public class Cart : ProductsDisplayer
     {
         if (product == null)
             throw new ArgumentNullException(nameof(product));
+
         if (amount <= 0)
             throw new ArgumentOutOfRangeException(nameof(amount));
 
-        if (_warehouse.CheckAvailability(product, amount))
-            _selectedProducts.Add(product, amount);
+        _warehouse.MakeSureProductAvailable(product, amount, _orderedProducts);
+        _selectedProducts.Add(product, amount);
     }
 
     public Order MakeOrder()
@@ -190,12 +204,12 @@ public class Cart : ProductsDisplayer
 
 public class Order
 {
-    public string Paylink { get; }
-
     public Order()
     {
         Paylink = CreateLink();
     }
+
+    public string Paylink { get; }
 
     private string CreateLink()
     {
