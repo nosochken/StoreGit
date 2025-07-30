@@ -56,7 +56,7 @@ public abstract class ProductsDisplayer
 
 public interface IStorable
 {
-    public void ConfirmAvailability(Product product, int amount);
+    public bool IsAvailable(Product product, int amount);
 
     public void PickUpProducts(IReadOnlyDictionary<Product, int> orderedProducts);
 }
@@ -84,38 +84,7 @@ public class Warehouse : ProductsDisplayer, IStorable
             _products.Add(product, amount);
     }
 
-    public void PickUpProducts(IReadOnlyDictionary<Product, int> orderedProducts)
-    {
-        if (orderedProducts == null)
-            throw new ArgumentNullException(nameof(orderedProducts));
-
-        foreach (KeyValuePair<Product, int> orderedProduct in orderedProducts)
-        {
-            ConfirmAvailability(orderedProduct.Key, orderedProduct.Value);
-
-            _products[orderedProduct.Key] -= orderedProduct.Value;
-
-            if (_products[orderedProduct.Key] == 0)
-                _products.Remove(orderedProduct.Key);
-        }
-    }
-
-    public void ConfirmAvailability(Product product, int amount)
-    {
-        if (product == null)
-            throw new ArgumentNullException(nameof(product));
-
-        if (_products.ContainsKey(product) == false)
-            throw new InvalidOperationException("Товар не найден на складе");
-
-        if (amount <= 0)
-            throw new ArgumentOutOfRangeException(nameof(amount));
-
-        if (IsAvailable(product, amount) == false)
-            throw new InvalidOperationException("Недостаточно товара на складе");
-    }
-
-    private bool IsAvailable(Product product, int amount)
+    public bool IsAvailable(Product product, int amount)
     {
         if (product == null)
             throw new ArgumentNullException(nameof(product));
@@ -127,6 +96,25 @@ public class Warehouse : ProductsDisplayer, IStorable
             return false;
 
         return availableAmount >= amount;
+    }
+
+    public void PickUpProducts(IReadOnlyDictionary<Product, int> orderedProducts)
+    {
+        if (orderedProducts == null)
+            throw new ArgumentNullException(nameof(orderedProducts));
+
+        foreach (KeyValuePair<Product, int> orderedProduct in orderedProducts)
+        {
+            if (IsAvailable(orderedProduct.Key, orderedProduct.Value))
+            {
+                _products[orderedProduct.Key] -= orderedProduct.Value;
+
+                if (_products[orderedProduct.Key] == 0)
+                    _products.Remove(orderedProduct.Key);
+            }
+            else
+                throw new InvalidOperationException("Недостаточно товара на складе");
+        }
     }
 }
 
@@ -176,9 +164,10 @@ public class Cart : ProductsDisplayer
         if (_selectedProducts.ContainsKey(product))
             totalAmount += _selectedProducts[product];
 
-        _warehouse.ConfirmAvailability(product, totalAmount);
-
-        _selectedProducts[product] = totalAmount;
+        if (_warehouse.IsAvailable(product, totalAmount))
+            _selectedProducts[product] = totalAmount;
+        else
+            throw new InvalidOperationException("Недостаточно товара на складе");
     }
 
     public Order MakeOrder()
