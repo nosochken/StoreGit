@@ -92,10 +92,10 @@ public class Warehouse : ProductsDisplayer, IStorable
         foreach (KeyValuePair<Product, int> orderedProduct in orderedProducts)
         {
             ConfirmAvailability(orderedProduct.Key, orderedProduct.Value);
-            
-             _products[orderedProduct.Key] -= orderedProduct.Value;
-             
-             if (_products[orderedProduct.Key] == 0)
+
+            _products[orderedProduct.Key] -= orderedProduct.Value;
+
+            if (_products[orderedProduct.Key] == 0)
                 _products.Remove(orderedProduct.Key);
         }
     }
@@ -114,7 +114,7 @@ public class Warehouse : ProductsDisplayer, IStorable
         if (IsAvailable(product, amount) == false)
             throw new InvalidOperationException("Недостаточно товара на складе");
     }
-    
+
     private bool IsAvailable(Product product, int amount)
     {
         if (product == null)
@@ -136,7 +136,7 @@ public class Shop
 
     public Shop(Warehouse warehouse)
     {
-        _warehouse = warehouse ?? throw new ArgumentNullException(nameof(warehouse));;
+        _warehouse = warehouse ?? throw new ArgumentNullException(nameof(warehouse)); ;
     }
 
     public Cart GetCart()
@@ -170,13 +170,14 @@ public class Cart : ProductsDisplayer
 
         if (amount <= 0)
             throw new ArgumentOutOfRangeException(nameof(amount));
-        
-        _selectedProducts.TryGetValue(product, out int existingAmount);
-        
-        int totalAmount = existingAmount + amount;
+
+        int totalAmount = amount;
+
+        if (_selectedProducts.ContainsKey(product))
+            totalAmount += _selectedProducts[product];
 
         _warehouse.ConfirmAvailability(product, totalAmount);
-        
+
         _selectedProducts[product] = totalAmount;
     }
 
